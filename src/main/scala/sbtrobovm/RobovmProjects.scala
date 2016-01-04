@@ -8,12 +8,15 @@ import org.robovm.compiler.AppCompiler
 import org.robovm.compiler.config.{Arch, Config, OS}
 import org.robovm.compiler.log.Logger
 import org.robovm.compiler.target.ConsoleTarget
+import org.robovm.compiler.target.ios.DeviceType.DeviceFamily
 import org.robovm.compiler.target.ios._
 import org.robovm.libimobiledevice.IDevice
 import sbt.Keys._
 import sbt._
 import sbtrobovm.RobovmPlugin._
 import sbtrobovm.interfacebuilder.RobovmInterfaceBuilder
+
+import scala.util.control.NonFatal
 
 object RobovmProjects {
 
@@ -343,6 +346,29 @@ object RobovmProjects {
     streams.value.log.debug("simulator task finished (exit code "+code+")")
   }
 
+  def getBestDeviceType(deviceFamily: DeviceFamily):DeviceType = {
+    //See issue #60
+    try {
+      val found = DeviceType.getBestDeviceType(deviceFamily)
+      if(found != null){
+        found
+      }else{
+        throw new NullPointerException("getBestDeviceType returned null")
+      }
+    } catch {
+      case NonFatal(ex) =>
+        //Print diagnostic info
+        try {
+          println("Show device types:\n"+new org.robovm.compiler.util.Executor(org.robovm.compiler.log.Logger.NULL_LOGGER, org.robovm.compiler.target.ios.AppleDeviceTarget.getIosSimPath).args("showdevicetypes").execCapture())
+        } catch {
+          case t:Throwable =>
+            println("Failed to print diagnostic: "+t)
+        }
+        throw new RuntimeException("Failed to getBestDeviceType", ex)
+    }
+  }
+
+
  lazy val iOSProjectSettings = Seq(
     robovmSimulatorDevice := None,
     robovmProvisioningProfile := None,
@@ -355,10 +381,10 @@ object RobovmProjects {
     robovmTargetArch in device := Array(if((robovmTarget64bit in device).value) Arch.arm64 else Arch.thumbv7),
 
     //TODO Allow specifying SDK version and device version in simulator tasks?
-    iphoneSim := simulatorTask(ThisScope.in(iphoneSim.key), DeviceType.getBestDeviceType(DeviceType.DeviceFamily.iPhone)).value,
-    iphoneSim in Debug := simulatorTask(ThisScope.in(iphoneSim.key).in(Debug), DeviceType.getBestDeviceType(DeviceType.DeviceFamily.iPhone)).value,
-    ipadSim := simulatorTask(ThisScope.in(ipadSim.key), DeviceType.getBestDeviceType(DeviceType.DeviceFamily.iPad)).value,
-    ipadSim in Debug := simulatorTask(ThisScope.in(ipadSim.key).in(Debug), DeviceType.getBestDeviceType(DeviceType.DeviceFamily.iPad)).value,
+    iphoneSim := simulatorTask(ThisScope.in(iphoneSim.key), getBestDeviceType(DeviceType.DeviceFamily.iPhone)).value,
+    iphoneSim in Debug := simulatorTask(ThisScope.in(iphoneSim.key).in(Debug), getBestDeviceType(DeviceType.DeviceFamily.iPhone)).value,
+    ipadSim := simulatorTask(ThisScope.in(ipadSim.key), getBestDeviceType(DeviceType.DeviceFamily.iPad)).value,
+    ipadSim in Debug := simulatorTask(ThisScope.in(ipadSim.key).in(Debug), getBestDeviceType(DeviceType.DeviceFamily.iPad)).value,
     simulator := simulatorTask(ThisScope.in(simulator.key), null).value,
     simulator in Debug := simulatorTask(ThisScope.in(simulator.key).in(Debug), null).value,
     robovmTargetArch in simulator := Array(if((robovmTarget64bit in simulator).value) Arch.x86_64 else Arch.x86),

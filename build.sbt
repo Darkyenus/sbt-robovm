@@ -8,6 +8,12 @@ lazy val sbtRoboVM = (project in file(".")).
     licenses += ("BSD 3-Clause", url("http://opensource.org/licenses/BSD-3-Clause")),
     organization := "org.roboscala",
     version := roboVMVersion.value,
+    publishM2 := {
+      publishM2.value
+
+      val d = file(sys.env("HOME")) / s".m2/repository/org/roboscala/sbt-robovm_${scalaBinaryVersion.value}_${sbtBinaryVersion.value}"
+      d.renameTo(file(sys.env("HOME")) / ".m2/repository/org/roboscala/sbt-robovm")
+    },
     sbtPlugin := true,
     publishMavenStyle := true,
     bintrayOrganization := None,
